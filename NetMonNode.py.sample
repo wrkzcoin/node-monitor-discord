@@ -1,0 +1,106 @@
+#!/usr/bin/python3.5
+from typing import List, Dict
+import requests
+import asyncio
+from discord_webhook import DiscordWebhook
+
+REMOTE_NODES_URL = "https://raw.githubusercontent.com/wrkzcoin/wrkzcoin-nodes-json/master/wrkzcoin-nodes.json"
+GITHUB = "https://github.com/wrkzcoin/wrkzcoin-nodes-json"
+# Get your webhook from discord => https://support.discordapp.com/hc/en-us/articles/228383668-Intro-to-Webhooks
+DISCORD_HOOK = "https://discordapp.com/api/webhooks/................."
+SLEEP_CHECK = 30*60  # 30mn
+
+# Start the work
+async def getNodeList():
+    resp = requests.get(url=REMOTE_NODES_URL,timeout=5.0)
+    data = resp.json()['nodes']
+    node_list = [] ## array of nodes
+    for node in data:
+        try:
+            node_url = 'http://'+node['url'].strip()+':'+str(node['port'])+'/getinfo'
+            resp = requests.get(node_url,timeout=5)
+            resp.raise_for_status()
+            getinfo = resp.json()
+            try:
+                node_url = 'http://'+node['url'].strip()+':'+str(node['port'])+'/fee'
+                resp = requests.get(node_url,timeout=5)
+                resp.raise_for_status()
+                getfee = resp.json()
+                if all(v is not None for v in [getinfo, getfee]):
+                    node_list.append({
+                        'url':node['url'].strip(),
+                        'port':node['port'],
+                        'fee':getfee['amount'],
+                        'height':getinfo['height'],
+                        'alt_blocks_count':getinfo['alt_blocks_count'],
+                        'incoming_connections_count':getinfo['incoming_connections_count'],
+                        'outgoing_connections_count':getinfo['outgoing_connections_count'],
+                        'network_height':getinfo['network_height'],
+                        'difficulty':getinfo['difficulty'],
+                        'last_known_block_index':getinfo['last_known_block_index'],
+                        'tx_count':getinfo['tx_count'],
+                        'version':getinfo['version'],
+                        'white_peerlist_size':getinfo['white_peerlist_size'],
+                        'start_time':getinfo['start_time'],
+                        'grey_peerlist_size':getinfo['grey_peerlist_size'],
+                        'tx_pool_size':getinfo['tx_pool_size'],
+                        'hashrate':getinfo['hashrate'],
+                        'synced':str(getinfo['synced']).upper()
+                        })
+            except requests.exceptions.RequestException  as e:
+                #sql_turn_sync_false(node['url'].strip())
+                print(node['url'].strip())
+                print(e)
+                continue
+        except requests.exceptions.RequestException  as e:
+            #sql_turn_sync_false(node['url'].strip())
+            print(node['url'].strip())
+            print(e)
+            continue
+    return node_list
+
+
+async def postDiscord(botName: str, content):
+    data = '{"username": "'+botName+'", "content": "'+content+'"}'
+    response = requests.post(DISCORD_HOOK, data=data)
+
+
+# do job
+async def getNodeText():
+    print('sleep 1 second')
+    await asyncio.sleep(1)
+    node_list = None
+    try:
+        node_list = await getNodeList()
+    except Exception as e:
+        print(e)
+    if len(node_list) > 0:
+        print('Posting to discord...')
+        #print('node_list:')
+        #print(node_list)
+        post_text = ''
+        for item in node_list:
+            post_text += "**" + item['url'] + "** Synced: "+ item['synced'] + "\n"
+            post_text += "```"
+            post_text += "Height: " + str('{:,.0f}'.format(item['height'])) + ', '
+            post_text += "network_height: " + str('{:,.0f}'.format(item['network_height'])) + ', '
+            post_text += "alt_blocks_count: " + str('{:,.0f}'.format(item['alt_blocks_count'])) + ', '
+            post_text += "incoming_connections_count: " + str('{:,.0f}'.format(item['incoming_connections_count'])) + ', '
+            post_text += "outgoing_connections_count: " + str('{:,.0f}'.format(item['outgoing_connections_count'])) + ', '
+            post_text += "difficulty: " + str('{:,.0f}'.format(item['difficulty'])) + ', '
+            post_text += "tx_count: " + str('{:,.0f}'.format(item['tx_count'])) + ', '
+            post_text += "tx_pool_size: " + str('{:,.0f}'.format(item['tx_pool_size'])) + ', '
+            post_text += "hashrate: " + str('{:,.0f}'.format(item['hashrate']))
+            post_text += "```"
+            post_text += "\n"
+        post_text += "Github: `" + GITHUB + '`'
+        #print(post_text)
+        webhook = DiscordWebhook(url=DISCORD_HOOK, content=post_text)
+        webhook.execute()
+    print('Sleep...')
+    await asyncio.sleep(SLEEP_CHECK)
+
+# Python 3.6 and older
+while True:
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(getNodeText())
