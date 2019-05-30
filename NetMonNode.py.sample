@@ -14,7 +14,7 @@ SLEEP_CHECK = 30*60  # 30mn
 async def getNodeList():
     resp = requests.get(url=REMOTE_NODES_URL,timeout=5.0)
     data = resp.json()['nodes']
-    node_list = [] ## array of nodes
+    node_list = []  # array of nodes
     for node in data:
         try:
             node_url = 'http://'+node['url'].strip()+':'+str(node['port'])+'/getinfo'
@@ -48,21 +48,14 @@ async def getNodeList():
                         'synced':str(getinfo['synced']).upper()
                         })
             except requests.exceptions.RequestException  as e:
-                #sql_turn_sync_false(node['url'].strip())
                 print(node['url'].strip())
                 print(e)
                 continue
         except requests.exceptions.RequestException  as e:
-            #sql_turn_sync_false(node['url'].strip())
             print(node['url'].strip())
             print(e)
             continue
     return node_list
-
-
-async def postDiscord(botName: str, content):
-    data = '{"username": "'+botName+'", "content": "'+content+'"}'
-    response = requests.post(DISCORD_HOOK, data=data)
 
 
 # do job
@@ -94,7 +87,6 @@ async def getNodeText():
             post_text += "```"
             post_text += "\n"
         post_text += "Github: `" + GITHUB + '`'
-        #print(post_text)
         webhook = DiscordWebhook(url=DISCORD_HOOK, content=post_text)
         webhook.execute()
     print('Sleep...')
