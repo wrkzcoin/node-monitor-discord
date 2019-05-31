@@ -52,6 +52,12 @@ async def getNodeList():
                 print(e)
                 continue
         except requests.exceptions.RequestException  as e:
+            node_list.append({
+                'url':node['url'].strip(),
+                'port':node['port'],
+                'synced':"FALSE",
+                'error':"Failed to connect."
+                })
             print(node['url'].strip())
             print(e)
             continue
@@ -69,21 +75,22 @@ async def getNodeText():
         print(e)
     if len(node_list) > 0:
         print('Posting to discord...')
-        #print('node_list:')
-        #print(node_list)
         post_text = ''
         for item in node_list:
-            post_text += "**" + item['url'] + "** Synced: "+ item['synced'] + "\n"
+            post_text += "**" + item['url'] + ":" + str(item['port']) + "** Synced: "+ item['synced'] + "\n"
             post_text += "```"
-            post_text += "Height: " + str('{:,.0f}'.format(item['height'])) + ', '
-            post_text += "network_height: " + str('{:,.0f}'.format(item['network_height'])) + ', '
-            post_text += "alt_blocks_count: " + str('{:,.0f}'.format(item['alt_blocks_count'])) + ', '
-            post_text += "incoming_connections_count: " + str('{:,.0f}'.format(item['incoming_connections_count'])) + ', '
-            post_text += "outgoing_connections_count: " + str('{:,.0f}'.format(item['outgoing_connections_count'])) + ', '
-            post_text += "difficulty: " + str('{:,.0f}'.format(item['difficulty'])) + ', '
-            post_text += "tx_count: " + str('{:,.0f}'.format(item['tx_count'])) + ', '
-            post_text += "tx_pool_size: " + str('{:,.0f}'.format(item['tx_pool_size'])) + ', '
-            post_text += "hashrate: " + str('{:,.0f}'.format(item['hashrate']))
+            if 'error' in item:
+                post_text += item['error']
+            else:
+                post_text += "Height: " + str('{:,.0f}'.format(item['height'])) + ', '
+                post_text += "network_height: " + str('{:,.0f}'.format(item['network_height'])) + ', '
+                post_text += "alt_blocks_count: " + str('{:,.0f}'.format(item['alt_blocks_count'])) + ', '
+                post_text += "incoming_connections_count: " + str('{:,.0f}'.format(item['incoming_connections_count'])) + ', '
+                post_text += "outgoing_connections_count: " + str('{:,.0f}'.format(item['outgoing_connections_count'])) + ', '
+                post_text += "difficulty: " + str('{:,.0f}'.format(item['difficulty'])) + ', '
+                post_text += "tx_count: " + str('{:,.0f}'.format(item['tx_count'])) + ', '
+                post_text += "tx_pool_size: " + str('{:,.0f}'.format(item['tx_pool_size'])) + ', '
+                post_text += "hashrate: " + str('{:,.0f}'.format(item['hashrate']))
             post_text += "```"
             post_text += "\n"
         post_text += "Github: `" + GITHUB + '`'
