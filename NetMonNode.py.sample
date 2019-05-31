@@ -76,6 +76,7 @@ async def getNodeText():
     if len(node_list) > 0:
         print('Posting to discord...')
         post_text = ''
+        node_numbs = 0
         for item in node_list:
             post_text += "**" + item['url'] + ":" + str(item['port']) + "** Synced: "+ item['synced'] + "\n"
             post_text += "```"
@@ -92,7 +93,13 @@ async def getNodeText():
                 post_text += "tx_pool_size: " + str('{:,.0f}'.format(item['tx_pool_size'])) + ', '
                 post_text += "hashrate: " + str('{:,.0f}'.format(item['hashrate']))
             post_text += "```"
-            post_text += "\n"
+            node_numbs += 1
+            if node_numbs == 5:
+                webhook = DiscordWebhook(url=DISCORD_HOOK, content=post_text)
+                webhook.execute()
+                node_numbs = 0
+                post_text = ''
+        post_text += "\n"
         post_text += "Github: `" + GITHUB + '`'
         webhook = DiscordWebhook(url=DISCORD_HOOK, content=post_text)
         webhook.execute()
