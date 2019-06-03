@@ -84,13 +84,13 @@ async def getNodeText():
                 post_text += item['error']
             else:
                 post_text += "Height: " + str('{:,.0f}'.format(item['height'])) + ', '
-                post_text += "network_height: " + str('{:,.0f}'.format(item['network_height'])) + ', '
-                post_text += "alt_blocks_count: " + str('{:,.0f}'.format(item['alt_blocks_count'])) + ', '
-                post_text += "incoming_connections_count: " + str('{:,.0f}'.format(item['incoming_connections_count'])) + ', '
-                post_text += "outgoing_connections_count: " + str('{:,.0f}'.format(item['outgoing_connections_count'])) + ', '
+                post_text += "net_height: " + str('{:,.0f}'.format(item['network_height'])) + ', '
+                post_text += "alt_blocks: " + str('{:,.0f}'.format(item['alt_blocks_count'])) + ', '
+                post_text += "in_conn: " + str('{:,.0f}'.format(item['incoming_connections_count'])) + ', '
+                post_text += "out_conn: " + str('{:,.0f}'.format(item['outgoing_connections_count'])) + ', '
                 post_text += "difficulty: " + str('{:,.0f}'.format(item['difficulty'])) + ', '
                 post_text += "tx_count: " + str('{:,.0f}'.format(item['tx_count'])) + ', '
-                post_text += "tx_pool_size: " + str('{:,.0f}'.format(item['tx_pool_size'])) + ', '
+                post_text += "tx_pool: " + str('{:,.0f}'.format(item['tx_pool_size'])) + ', '
                 post_text += "hashrate: " + str('{:,.0f}'.format(item['hashrate']))
             post_text += "```"
             post_text += "\n"
