@@ -11,3 +11,5 @@ A bot that send Wrkz nodes to discord @ https://chat.wrkz.work #botz-log
 
 <https://github.com/wrkzcoin/wrkzcoin-nodes-json>
 
+**Screenshot**
+![Image of Node Monitor](https://raw.githubusercontent.com/wrkzcoin/node-monitor-discord/master/discord-node-mon.png)
