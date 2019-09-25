@@ -1,4 +1,4 @@
-#!/usr/bin/python3.5
+#!/usr/bin/python3.7
 from typing import List, Dict
 import requests
 import asyncio
