@@ -12,6 +12,7 @@ REMOTE_NODES_URL = "https://raw.githubusercontent.com/wrkzcoin/wrkzcoin-nodes-js
 GITHUB = "https://github.com/wrkzcoin/wrkzcoin-nodes-json"
 SLEEP_CHECK = 0.2*60  # 12s
 NODE_LIVE_LIST = []
+FIXED_FEE = 2500
 
 selected_node = None
 
@@ -72,7 +73,7 @@ async def getNodeList():
 
 # /fee
 async def handle_fee(request):
-    global NODE_LIVE_LIST, selected_node
+    global NODE_LIVE_LIST, selected_node, FIXED_FEE
     if selected_node is None:
         node_list = await getNodeList()
         if len(node_list) > 0:
@@ -92,7 +93,7 @@ async def handle_fee(request):
 
     reply = {
         "address": selected_node['address'],
-        "amount": selected_node['fee'],
+        "amount": FIXED_FEE,
         "status": "OK"
     }
     response_obj = reply
