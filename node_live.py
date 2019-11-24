@@ -1,30 +1,72 @@
 #!/usr/bin/python3.7
 from typing import List, Dict
-import requests
-import asyncio
-import aiohttp
+import asyncio, aiohttp
 from aiohttp import web
-import time
-import json
-import time
+import time, json
+import pymysql.cursors
+# For some environment variables
+import os
 
+DBHOST = os.getenv('NODEWRKZ_MYSQL_HOST', 'localhost')
+DBUSER = os.getenv('NODEWRKZ_MYSQL_USER', 'user')
+DBNAME = os.getenv('NODEWRKZ_MYSQL_NAME', 'dbname')
+DBPASS = os.getenv('NODEWRKZ_MYSQL_PASS', 'dbpassword')
+        
 REMOTE_NODES_URL = "https://raw.githubusercontent.com/wrkzcoin/wrkzcoin-nodes-json/master/wrkzcoin-nodes.json"
 SLEEP_CHECK = 15  # 15s
 NODE_LIVE_LIST = []
+REMOTE_NODES_JSON = None
 
-selected_node = None
+conn = None
+
+# Open Connection
+def openConnection():
+    global conn
+    try:
+        if conn is None:
+            conn = pymysql.connect(DBHOST, user=DBUSER, passwd=DBPASS, db=DBNAME, charset='utf8', 
+                cursorclass=pymysql.cursors.DictCursor, connect_timeout=5)
+        elif (not conn.open):
+            conn = pymysql.connect(DBHOST, user=DBUSER, passwd=DBPASS, db=DBNAME, charset='utf8mb4', 
+            cursorclass=pymysql.cursors.DictCursor, connect_timeout=5)    
+    except:
+        print("ERROR: Unexpected error: Could not connect to MySql instance.")
+        sys.exit()
+
+
+def insert_nodes(nodelist):
+    global conn
+    openConnection()
+    try:
+        with conn.cursor() as cursor:
+            sql = """ INSERT INTO `pubnodes_wrkz` (`name`, `url`, `port`, `url_port`, `ssl`, 
+                      `cache`, `fee_address`, `fee_fee`, `online`, `version`, `timestamp`, `getinfo_dump`) 
+                      VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) """
+            for each in nodelist:
+                list = tuple([value for k, value in each.items()])
+                cursor.execute(sql, (list))
+            conn.commit()
+    finally:
+        conn.close()
+
 
 # Start the work
 async def getNodeList():
+    global REMOTE_NODES_JSON
     time_out = 10
-    resp = requests.get(url=REMOTE_NODES_URL,timeout=time_out)
-    data = resp.json()['nodes']
+    async with aiohttp.ClientSession() as session:
+        async with session.get(REMOTE_NODES_URL, timeout=time_out) as response:
+            try:
+                resp = await response.json()
+            except Exception as e:
+                resp = json.loads(await response.read())
+    data = resp['nodes']
+    REMOTE_NODES_JSON = data
     node_list = []  # array of nodes
     proto = 'http://'
     for node in data:
         getinfo = None
         getfee = None
-        print(node)
         try:
             if node['ssl'] == True:
                 proto = 'https://'
@@ -54,71 +96,82 @@ async def getNodeList():
             print('TIMEOUT: {}'.format(node_url))
             continue
         if all(v is not None for v in [getinfo, getfee]):
-            # print("Data got for {}".format(node['name']))
             node_list.append({
                 'name': node['name'],
                 'url': node['url'].strip(),
                 'port': node['port'],
-                'ssl': node['ssl'],
-                'cache': node['cache'],
-                'fee': {
-                    'address':getfee['address'] if 'address' in getfee and len(getfee['address']) == 98 else "",
-                    'fee':int(getfee['amount']) if 'amount' in getfee else 0
-                },
-                'online': True,
+                'url_port': node['url'].strip().lower() + ':' + str(node['port']),
+                'ssl': 1 if node['ssl'] == True else 0,
+                'cache': 1 if node['cache'] == True else 0,
+                'fee_address': getfee['address'] if 'address' in getfee and len(getfee['address']) == 98 else "",
+                'fee_fee': int(getfee['amount']) if 'amount' in getfee else 0,
+                'online': 1,
                 'version': getinfo['version'],
                 'timestamp': int(time.time()),
-                'height': getinfo['height'],
-                'alt_blocks_count': getinfo['alt_blocks_count'],
-                'incoming_connections_count': getinfo['incoming_connections_count'],
-                'outgoing_connections_count': getinfo['outgoing_connections_count'],
-                'network_height': getinfo['network_height'],
-                'difficulty': getinfo['difficulty'],
-                'last_known_block_index': getinfo['last_known_block_index'],
-                'tx_count': getinfo['tx_count'],
-                'white_peerlist_size': getinfo['white_peerlist_size'],
-                'start_time': getinfo['start_time'],
-                'grey_peerlist_size': getinfo['grey_peerlist_size'],
-                'tx_pool_size': getinfo['tx_pool_size'],
-                'hashrate': getinfo['hashrate']
+                'getinfo_dump': json.dumps(getinfo)
                 })
         else:
             node_list.append({
                 'name': node['name'],
                 'url': node['url'].strip(),
                 'port': node['port'],
-                'ssl': node['ssl'],
-                'cache': node['cache'],
-                'fee': {
-                    'address': "",
-                    'fee': 0
-                },
-                'online': False,
+                'url_port': node['url'].strip().lower() + ':' + str(node['port']),
+                'ssl': 1 if node['ssl'] == True else 0,
+                'cache': 1 if node['cache'] == True else 0,
+                'fee_address': "",
+                'fee_fee': 0,
+                'online': 0,
                 'version': "",
                 'timestamp': 0,
-                'height': 0,
-                'alt_blocks_count': 0,
-                'incoming_connections_count': 0,
-                'outgoing_connections_count': 0,
-                'network_height': 0,
-                'difficulty': 0,
-                'last_known_block_index': 0,
-                'tx_count': 0,
-                'white_peerlist_size': 0,
-                'start_time': 0,
-                'grey_peerlist_size': 0,
-                'tx_pool_size': 0,
-                'hashrate': 0,
-                'synced': False
+                'getinfo_dump': ''
                 })
     return node_list
 
 
 async def handle_get_nodelist(request):
-    global NODE_LIVE_LIST
-    if len(NODE_LIVE_LIST) == 0:
-        NODE_LIVE_LIST = await getNodeList()
-    response_obj = {"nodes": NODE_LIVE_LIST}
+    global conn, REMOTE_NODES_URL, REMOTE_NODES_JSON
+    time_out = 10
+    node_list = []
+    if REMOTE_NODES_JSON is None:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(REMOTE_NODES_URL, timeout=time_out) as response:
+                try:
+                    resp = await response.json()
+                except Exception as e:
+                    resp = json.loads(await response.read())
+        REMOTE_NODES_JSON = resp['nodes']  
+    openConnection()
+    try:
+        with conn.cursor() as cursor:
+            for each in REMOTE_NODES_JSON:
+                node = each['url'].strip().lower() + ':' + str(each['port'])
+                sql = """ SELECT SUM(`online`) FROM (SELECT `pubnodes_wrkz`.`online`, `pubnodes_wrkz`.`timestamp` 
+                          FROM `pubnodes_wrkz` WHERE `pubnodes_wrkz`.`url_port` = %s 
+                          ORDER BY `pubnodes_wrkz`.`timestamp` DESC LIMIT 100) AS `availability` """
+                cursor.execute(sql, (node))
+                node_avail = cursor.fetchone()
+                if node_avail:
+                    sql = """ SELECT `name`, `url`, `port`, `ssl`, `cache`, `fee_address`, `fee_fee`, `online`, `version`, `timestamp`
+                              FROM `pubnodes_wrkz` WHERE `pubnodes_wrkz`.`url_port` = %s 
+                              ORDER BY `pubnodes_wrkz`.`timestamp` DESC LIMIT 1 """
+                    cursor.execute(sql, (node))
+                    node_data = cursor.fetchone()
+                    if node_data:
+                        node_list.append({
+                            'name': node_data['name'],
+                            'url': node_data['url'],
+                            'port': node_data['port'],
+                            'ssl': True if node_data['ssl'] == 1 else False,
+                            'cache': True if node_data['cache'] == 1 else False,
+                            'fee': {'address': node_data['fee_address'], 'amount': node_data['fee_fee']},
+                            'availability': int(node_avail['SUM(`online`)']) or 0,
+                            'online': True if node_data['online'] == 1 else False,
+                            'version': node_data['version'],
+                            'timestamp': node_data['timestamp']
+                        })
+    finally:
+        conn.close()
+    response_obj = {"nodes": node_list}
     # json_string = json.dumps(response_obj).replace(" ", "")
     return web.json_response(response_obj, status=200)
 
@@ -128,23 +181,21 @@ async def node_check_bg(app):
     global NODE_LIVE_LIST
     tmp_node = []
     while True:
-        node_list = None
         try:
             try:
                 tmp_node = await getNodeList()
-                NODE_LIVE_LIST = tmp_node
+                insert_nodes(tmp_node)
             except Exception as e:
                 print(e)
             if len(tmp_node) > 0:
                 print("==============")
-                print("Get total nodes {}.".format(tmp_node))
+                print("Get total nodes {}.".format(len(tmp_node)))
                 print("==============")
             else:
                 print('Currently 0 nodes... Sleep {s}'.format(SLEEP_CHECK))
         except asyncio.CancelledError:
             pass
-        print('Getting {} nodes live.. Sleep {}s'.format(len(NODE_LIVE_LIST), SLEEP_CHECK))
-        time.sleep(SLEEP_CHECK)
+        await asyncio.sleep(SLEEP_CHECK)
 
 
 async def start_background_tasks(app):
@@ -160,6 +211,6 @@ app = web.Application()
 app.on_startup.append(start_background_tasks)
 app.on_cleanup.append(cleanup_background_tasks)
 
-app.router.add_route('GET', '/node/list', handle_get_nodelist)
+app.router.add_route('GET', '/list', handle_get_nodelist)
 
 web.run_app(app, host='127.0.0.1', port=8080)
