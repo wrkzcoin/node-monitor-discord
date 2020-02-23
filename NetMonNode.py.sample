@@ -12,18 +12,22 @@ SLEEP_CHECK = 30*60  # 30mn
 
 # Start the work
 async def getNodeList():
-    resp = requests.get(url=REMOTE_NODES_URL,timeout=5.0)
+    resp = requests.get(url=REMOTE_NODES_URL,timeout=10.0)
     data = resp.json()['nodes']
     node_list = []  # array of nodes
     for node in data:
         try:
             node_url = 'http://'+node['url'].strip()+':'+str(node['port'])+'/getinfo'
-            resp = requests.get(node_url,timeout=5)
+            if 'ssl' in node and node['ssl'] == True:
+                node_url = 'https://'+node['url'].strip()+':'+str(node['port'])+'/getinfo'
+            resp = requests.get(node_url,timeout=15.0)
             resp.raise_for_status()
             getinfo = resp.json()
             try:
                 node_url = 'http://'+node['url'].strip()+':'+str(node['port'])+'/fee'
-                resp = requests.get(node_url,timeout=5)
+                if 'ssl' in node and node['ssl'] == True:
+                    node_url = 'https://'+node['url'].strip()+':'+str(node['port'])+'/fee'
+                resp = requests.get(node_url,timeout=15.0)
                 resp.raise_for_status()
                 getfee = resp.json()
                 if all(v is not None for v in [getinfo, getfee]):
