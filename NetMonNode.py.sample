@@ -17,9 +17,9 @@ async def getNodeList():
     node_list = []  # array of nodes
     for node in data:
         try:
-            node_url = 'http://'+node['url'].strip()+':'+str(node['port'])+'/getinfo'
+            node_url = 'http://'+node['url'].strip()+':'+str(node['port'])+'/info'
             if 'ssl' in node and node['ssl'] == True:
-                node_url = 'https://'+node['url'].strip()+':'+str(node['port'])+'/getinfo'
+                node_url = 'https://'+node['url'].strip()+':'+str(node['port'])+'/info'
             resp = requests.get(node_url,timeout=15.0)
             resp.raise_for_status()
             getinfo = resp.json()
